@@ -67,8 +67,8 @@ class AccountsTest extends UnitSpec {
 
     val Some(fromAccount) = db.getAccount(6, "usd").futureValue
     val Some(toAccount) = db.getAccount(7, "usd").futureValue
-    assert(toAccount.balance === 500.0)
     assert(fromAccount.balance === 600.0)
+    assert(toAccount.balance === 500.0)
 
     val toRecords = db.accountRecords(toAccount.id).futureValue.sortBy(_.id)
     val Credit(_, toAccountId, amount, Some(fromAccountId), _) = toRecords.last
@@ -78,9 +78,9 @@ class AccountsTest extends UnitSpec {
 
 
     val fromRecords = db.accountRecords(fromAccount.id).futureValue.sortBy(_.id)
-    val Debit(_, debitToId, debitAmount, Some(debitFromId), _) = fromRecords.last
-    assert(debitToId === toAccount.id)
+    val Debit(_, debitFromId, debitAmount, Some(debitToId), _) = fromRecords.last
     assert(debitFromId === fromAccount.id)
+    assert(debitToId === toAccount.id)
     assert(debitAmount === 400.0)
   }
 }
