@@ -67,42 +67,69 @@ class DAO(val db: Database) {
   }
 
   def credit(userId: Int, money: Money): Future[String] = {
-    getOrCreateAccount(userId, money.currency).map { account =>
+    getOrCreateAccount(userId, money.currency).flatMap { account =>
       val transfer = Transfer(0, None, Some(account.id), None, Some(money.amount), Some("credit"))
-      db.run(DBIO.seq(
-        updateBalance(account, account.getBalance + money),
-        addTransfer(transfer)
-      ).transactionally)
-      s"Credited $money successfully to user $userId"
+      db.run(
+        DBIO.seq(
+          updateBalance(account, account.getBalance + money),
+          addTransfer(transfer)
+        ).transactionally
+      ).map { _ =>
+        s"Credited $money successfully to user $userId"
+      }
     }
   }
 
   def debit(userId: Int, money: Money): Future[String] = {
-    ensureAccount(userId, money).map { account =>
+    ensureAccount(userId, money).flatMap { account =>
       val transfer = Transfer(0, Some(account.id), None, Some(money.amount), None, Some("debit"))
-      db.run(DBIO.seq(
-        updateBalance(account, account.getBalance - money),
-        addTransfer(transfer)
-      ))
-      s"Debited $money successfully from user $userId"
+      db.run(
+        DBIO.seq(
+          updateBalance(account, account.getBalance - money),
+          addTransfer(transfer)
+        ).transactionally
+      ).map { _ =>
+        s"Debited $money successfully from user $userId"
+      }
+    }
+  }
+
+  def transfer(fromUserId: Int, toUserId: Int, debit: Money, credit: Money): Future[String] = {
+    require(debit.amount > 0 && credit.amount > 0)
+    require(fromUserId != toUserId || (fromUserId == toUserId && debit.currency == credit.currency))
+    val fromAccount = ensureAccount(fromUserId, debit)
+    val toAccount = getOrCreateAccount(toUserId, credit.currency)
+    fromAccount.flatMap { from =>
+      toAccount.flatMap { to =>
+        val transfer = Transfer(0, Some(from.id), Some(to.id), Some(debit.amount), Some(credit.amount),
+          Some(s"money transfer from $fromUserId to $toUserId"))
+        db.run(
+          DBIO.seq(
+            updateBalance(from, from.getBalance - debit),
+            updateBalance(to, to.getBalance + credit),
+            addTransfer(transfer)
+          ).transactionally
+        ).map { _ =>
+          if (debit.currency == credit.currency)
+            s"Transferred $debit from user $fromUserId to user $toUserId"
+          else if (fromUserId == toUserId)
+            s"Converted from $debit to $credit for user $fromUserId, rate ${debit.currency}/${credit.currency}=${credit.amount / debit.amount}"
+          else
+            s"Transferred $debit from user $fromUserId to user $toUserId ($credit)"
+        }
+      }
     }
   }
 
   def transfer(fromUserId: Int, toUserId: Int, money: Money): Future[String] = {
-    for {
-      from <- ensureAccount(fromUserId, money)
-      to <- getOrCreateAccount(toUserId, money.currency)
-    } yield {
-      val transfer = Transfer(0, Some(from.id), Some(to.id), Some(money.amount), Some(money.amount),
-        Some(s"money transfer from $fromUserId to $toUserId"))
-      db.run(
-        DBIO.seq(
-          updateBalance(from, from.getBalance - money),
-          updateBalance(to, to.getBalance + money),
-          addTransfer(transfer)
-        ).transactionally
-      )
-      s"Transferred $money successfully from user $fromUserId to $toUserId"
-    }
+    require(fromUserId != toUserId)
+    require(money.amount > 0)
+    transfer(fromUserId, toUserId, money, money)
+  }
+
+  def transfer(userId: Int, debit: Money, credit: Money): Future[String] = {
+    require(debit.currency != credit.currency)
+    require(debit.amount > 0 && credit.amount > 0)
+    transfer(userId, userId, debit, credit)
   }
 }
