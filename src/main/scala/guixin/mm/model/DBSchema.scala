@@ -35,9 +35,9 @@ object DBSchema {
 
     def comment = column[Option[String]]("COMMENT")
 
-    def fromFK = foreignKey("from_FK", from, Accounts)(_.id)
+    def fromFK = foreignKey("from_FK", from, Accounts)(_.id.?)
 
-    def toFK = foreignKey("to_FK", to, Accounts)(_.id)
+    def toFK = foreignKey("to_FK", to, Accounts)(_.id.?)
 
     def * = (id, from, to, fromAmount, toAmount, comment).mapTo[Transfer]
   }
