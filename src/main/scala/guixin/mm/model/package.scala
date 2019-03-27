@@ -1,7 +1,5 @@
 package guixin.mm.model
 
-import java.time._
-
 object account {
 
   class Money(val amount: Double, val currency: String) {
@@ -16,6 +14,8 @@ object account {
       require(currency == that.currency, s"can't subtract different currencies $currency with ${that.currency}")
       Money(amount - that.amount, currency)
     }
+
+    override def toString: String = s"$currency $amount"
   }
 
   object Money {

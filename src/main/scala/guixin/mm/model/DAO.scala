@@ -42,16 +42,13 @@ class DAO(val db: Database) {
       case None => addAccount(userId, currency)
     }
 
-  val insertAndReturnTransferQuery = (Transfers returning Transfers.map(_.id)) into {
-    (transfer, id) => transfer.copy(id = id)
-  }
-
   def ensureAccount(userId: Int, money: Money): Future[Account] = {
     getAccount(userId, money.currency).map {
       case None => throw new IllegalArgumentException(s"Account not found for user $userId of ${money.currency}")
-      case Some(account) => if (account.balance < money.amount)
-        throw new IllegalStateException(s"not sufficient balance for user $userId of ${money.currency}")
-      else account
+      case Some(account) =>
+        if (account.balance < money.amount)
+          throw new IllegalStateException(s"not sufficient balance for user $userId of ${money.currency}")
+        else account
     }
   }
 
@@ -63,10 +60,14 @@ class DAO(val db: Database) {
   }
 
   def addTransfer(template: Transfer): DBIOAction[Transfer, NoStream, Effect.Write] = {
+    val insertAndReturnTransferQuery = (Transfers returning Transfers.map(_.id)) into {
+      (transfer, id) => transfer.copy(id = id)
+    }
     insertAndReturnTransferQuery += template
   }
 
   def credit(userId: Int, money: Money): Future[String] = {
+    require(money.amount > 0)
     getOrCreateAccount(userId, money.currency).flatMap { account =>
       val transfer = Transfer(0, None, Some(account.id), None, Some(money.amount), Some("credit"))
       db.run(
@@ -81,6 +82,7 @@ class DAO(val db: Database) {
   }
 
   def debit(userId: Int, money: Money): Future[String] = {
+    require(money.amount > 0)
     ensureAccount(userId, money).flatMap { account =>
       val transfer = Transfer(0, Some(account.id), None, Some(money.amount), None, Some("debit"))
       db.run(
@@ -102,7 +104,7 @@ class DAO(val db: Database) {
     fromAccount.flatMap { from =>
       toAccount.flatMap { to =>
         val transfer = Transfer(0, Some(from.id), Some(to.id), Some(debit.amount), Some(credit.amount),
-          Some(s"money transfer from $fromUserId to $toUserId"))
+          Some(s"money transfer from user $fromUserId to user $toUserId"))
         db.run(
           DBIO.seq(
             updateBalance(from, from.getBalance - debit),
