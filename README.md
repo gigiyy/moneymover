@@ -24,17 +24,3 @@ Account activities
 * Debit - money debit from account to external source
 * Credit - money credited to account from external source
 
-### UserService
-represents the external User service, used to retrieve user information
-
-### User
-presents customer to the application. 
-
-### FXService
-represents an external Fx Service, retrieve the Fx rate for currency conversions
-
-### Rate
-the exchange rate if the transfer includes currency conversion too.
-
-### Currency
-the currency info of certain account

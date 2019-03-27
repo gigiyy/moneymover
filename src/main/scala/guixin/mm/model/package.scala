@@ -59,17 +59,3 @@ object account {
                    comment: Option[String]) extends Record
 
 }
-
-object fx {
-
-  case class Currency(id: Int, name: String)
-
-  case class Rate(from: Int, to: Int, rate: Double, time: Instant)
-
-}
-
-object user {
-
-  case class User(id: Int, name: String)
-
-}
