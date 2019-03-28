@@ -66,6 +66,20 @@ class DAO(val db: Database) {
     insertAndReturnTransferQuery += template
   }
 
+  def getUserAccounts(userId: Int): Future[Seq[Account]] = db.run(
+    Accounts.filter(_.userId === userId).result
+  )
+
+  def getUserInfo(userId: Int): Future[Seq[(Account, Seq[Record])]] = {
+    getUserAccounts(userId).flatMap { accounts =>
+      Future.sequence(accounts.map { account =>
+        accountRecords(account.id).map { records =>
+          (account, records)
+        }
+      })
+    }
+  }
+
   def credit(userId: Int, money: Money): Future[String] = {
     require(money.amount > 0)
     getOrCreateAccount(userId, money.currency).flatMap { account =>

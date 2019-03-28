@@ -46,6 +46,8 @@ class AccountService(val db: DAO) extends Actor {
 
   def receive: Receive = normal(Set.empty, Vector.empty)
 
+  implicit val ec: ExecutionContextExecutor = context.dispatcher
+
   /**
     * service main loop.
     * <p>
@@ -84,15 +86,39 @@ class AccountService(val db: DAO) extends Actor {
       }
       context.become(normal(next, pending))
     case WorkingIds => sender() ! working
+    case User(userId) =>
+      db.getUserInfo(userId).map {
+        case seq if seq.nonEmpty =>
+          val accounts = seq.map {
+            case (account, records) =>
+              val transactions = records.map {
+                case model.account.Credit(id, _, amount, fromAccount, _) =>
+                  val action = if (fromAccount.nonEmpty) Received else Deposit
+                  Transaction(id, amount, action.toString)
+                case model.account.Debit(id, _, amount, toAccount, _) =>
+                  val action = if (toAccount.nonEmpty) Sent else Withdraw
+                  Transaction(id, amount, action.toString)
+              }
+              Account(account.id, Money(account.balance, account.currency), transactions)
+          }
+          UserInfo(userId, accounts)
+        case Nil =>
+          Err(s"User $userId no found.")
+      }.recover {
+        case e =>
+          println(e)
+          SysErr("server error")
+      } pipeTo sender()
   }
 }
 
 object AccountService {
 
-
   sealed trait Query
 
   final case object WorkingIds extends Query
+
+  final case class User(userId: Int) extends Query
 
   sealed trait Transfer {
     def ids: Set[Int] = this match {
@@ -115,6 +141,22 @@ object AccountService {
   final case class Err(message: String) extends Result
 
   final case class SysErr(message: String) extends Result
+
+  final case class UserInfo(id: Int, accounts: Seq[Account]) extends Result
+
+  case class Account(id: Int, balance: Money, records: Seq[Transaction])
+
+  case class Transaction(id: Int, money: Double, action: String)
+
+  sealed trait Action
+
+  final case object Deposit extends Action
+
+  final case object Withdraw extends Action
+
+  final case object Sent extends Action
+
+  final case object Received extends Action
 
   def props(db: DAO) = Props(new AccountService(db))
 }

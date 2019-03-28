@@ -2,6 +2,7 @@ package guixin.mm
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
@@ -10,13 +11,22 @@ import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import guixin.mm.AccountService._
 import guixin.mm.model.DBSchema
+import guixin.mm.model.account.Money
+import spray.json._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
 import scala.util.Success
 
-object Server extends App {
+trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
+  implicit val moneyFormat = jsonFormat2(Money.apply)
+  implicit val transactionFormat = jsonFormat3(Transaction)
+  implicit val accountFormat = jsonFormat3(Account)
+  implicit val userInfoFormat = jsonFormat2(UserInfo)
+}
+
+object Server extends App with JsonSupport {
 
   val PORT = 8080
 
@@ -35,11 +45,13 @@ object Server extends App {
 
   def enclose(message: String) = s"$message\n"
 
+
   def mapResult(f: Future[Result]) = {
     onComplete(f) {
       case Success(Ok(message)) => complete(HttpResponse(StatusCodes.OK, entity = enclose(message)))
       case Success(Err(message)) => complete(HttpResponse(StatusCodes.BadRequest, entity = enclose(message)))
       case Success(SysErr(message)) => complete(HttpResponse(StatusCodes.InternalServerError, entity = enclose(message)))
+      case Success(info: UserInfo) => complete(HttpResponse(StatusCodes.OK, entity = info.toJson.prettyPrint))
       case util.Failure(_) => complete(HttpResponse(StatusCodes.InternalServerError, entity = enclose("UNKNOWN")))
     }
   }
@@ -70,6 +82,14 @@ object Server extends App {
         post {
           parameters(('from.as[Int], 'to.as[Int], 'amount.as[Double], 'currency)) { (from, to, amount, currency) =>
             mapResult((service ? Trans(Debit(from, amount, currency), Credit(to, amount, currency))).mapTo[Result])
+          }
+        }
+      }
+    } ~ {
+      path("user") {
+        get {
+          parameters('id.as[Int]) { userId =>
+            mapResult((service ? User(userId)).mapTo[Result])
           }
         }
       }
