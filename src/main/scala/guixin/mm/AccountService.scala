@@ -22,10 +22,14 @@ class Worker(replyTo: ActorRef, message: Transfer, db: DAO) extends Actor {
         Money(credit.amount, credit.currency))
   }
 
-  future pipeTo context.self
+  future.map(Ok).recover {
+    case e: IllegalArgumentException => Err(e.getMessage)
+    case e: IllegalStateException => Err(e.getMessage)
+    case e => SysErr(e.getMessage)
+  } pipeTo context.self
 
   def receive: Receive = {
-    case msg: String =>
+    case msg: Result =>
       replyTo ! msg
       context.parent ! Done(message.ids)
   }
@@ -103,6 +107,14 @@ object AccountService {
   final case class Debit(userId: Int, amount: Double, currency: String) extends Transfer
 
   final case class Trans(debit: Debit, credit: Credit) extends Transfer
+
+  sealed trait Result
+
+  final case class Ok(message: String) extends Result
+
+  final case class Err(message: String) extends Result
+
+  final case class SysErr(message: String) extends Result
 
   def props(db: DAO) = Props(new AccountService(db))
 }
