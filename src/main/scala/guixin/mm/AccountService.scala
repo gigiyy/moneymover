@@ -43,12 +43,16 @@ class AccountService(val db: DAO) extends Actor {
   def receive: Receive = normal(Set.empty, Vector.empty)
 
   /**
-    * service main loop
-    *
+    * service main loop.
+    * <p>
     * to avoid race conditions where multiple updates to same group of user's accounts happens simultaneously,
-    * `AccountService` will cache the users' ID in `working` set until their processes were done
+    * `AccountService` will cache the users' ID in `working` set until their processes were done.
+    * <p/>
     * pending messages and their sender were cached in `waiting` queue
-    * after `Done` message received, pending message will be retried one by one
+    * until `Done` message received. pending message will be retried one by one.
+    * <p>
+    * <b>in reality, working set should be backed by shared MemCache so that we can have multiple instance
+    * of `AccountService` or `Server` itself.</b>
     *
     * @param working cache user IDs currently under processing
     * @param waiting Transfer messages pending processing
