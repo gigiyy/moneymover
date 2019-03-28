@@ -105,8 +105,7 @@ class AccountService(val db: DAO) extends Actor {
         case Nil =>
           Err(s"User $userId no found.")
       }.recover {
-        case e =>
-          println(e)
+        case _ =>
           SysErr("server error")
       } pipeTo sender()
   }
