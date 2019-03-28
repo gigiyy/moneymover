@@ -2,7 +2,7 @@ package guixin.mm.model
 
 object account {
 
-  class Money(val amount: Double, val currency: String) {
+  case class Money(amount: Double, currency: String) {
 
     def +(that: Money): Money = {
       require(currency == that.currency, s"can't add different currencies $currency with ${that.currency}")
@@ -19,7 +19,7 @@ object account {
   }
 
   object Money {
-    def apply(amount: Double, currency: String) = new Money(amount, currency)
+//    def apply(amount: Double, currency: String) = new Money(amount, currency)
 
     def usd(amount: Double): Money = Money(amount, "usd")
 
