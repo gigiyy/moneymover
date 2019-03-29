@@ -3,7 +3,7 @@ package guixin.mm
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
@@ -43,16 +43,22 @@ object Server extends App with JsonSupport {
   val db = DBSchema.createDatabase
   val service = actorSystem.actorOf(AccountService.props(db))
 
-  def enclose(message: String) = s"$message\n"
+  def enclose(message: String) =
+    s"""{
+       |  "message": "$message"
+       |}
+     """.stripMargin
 
+  def response(code: StatusCode, content: String) =
+    HttpResponse(code, entity = HttpEntity(ContentTypes.`application/json`, content))
 
   def mapResult(f: Future[Result]) = {
     onComplete(f) {
-      case Success(Ok(message)) => complete(HttpResponse(StatusCodes.OK, entity = enclose(message)))
-      case Success(Err(message)) => complete(HttpResponse(StatusCodes.BadRequest, entity = enclose(message)))
-      case Success(SysErr(message)) => complete(HttpResponse(StatusCodes.InternalServerError, entity = enclose(message)))
-      case Success(info: UserInfo) => complete(HttpResponse(StatusCodes.OK, entity = info.toJson.prettyPrint))
-      case util.Failure(_) => complete(HttpResponse(StatusCodes.InternalServerError, entity = enclose("UNKNOWN")))
+      case Success(Ok(message)) => complete(response(StatusCodes.OK, enclose(message)))
+      case Success(Err(message)) => complete(response(StatusCodes.BadRequest, enclose(message)))
+      case Success(SysErr(message)) => complete(response(StatusCodes.InternalServerError, enclose(message)))
+      case Success(info: UserInfo) => complete(response(StatusCodes.OK, info.toJson.prettyPrint))
+      case util.Failure(_) => complete(response(StatusCodes.InternalServerError, enclose("UNKNOWN")))
     }
   }
 

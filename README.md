@@ -1,19 +1,25 @@
 # Money Mover
-
 coding interview assignment.
 
 ## how to run
-`sbt` was used to build and run the application.
+This is a `sbt` project.
 
-to test run `sbt test` in project folder. or `sbt run` to start the server.
+To test, run `sbt test` in project folder; or `sbt run` to start the server.
 
-### test with server
-server will be started at `localhost:8080` and you can use `postman` or `curl` to interact with server like below.
+### the server
+Server will be started at `localhost:8080`, `postman` or `curl` can be used to interact with it.
 
 #### credit
 syntax: `POST credit?user=5&amount=1000&currency=jpy`
 
 result: `Credited jpy 1000.0 successfully to user 5`
+
+Result is returned as json, same for below endpoints too.
+```json
+{
+    "message": "Credited jpy 1000.0 successfully to user 5"
+}
+```
 
 #### debit
 syntax: `POST debit?user=4&amount=100&currency=jpy`
@@ -24,17 +30,19 @@ result:
 * `Debited jpy 100.0 successfully from user 4` while no errors
 
 #### transfer
+For demo purpose, only one type of fund transfers was added.
+However `AccountService` is able to move funds between accounts with different currencies too (exchange).
+
 syntax: `POST transfer?from=5&to=7&amount=100&currency=jpy`
 
 result: `Transferred jpy 100.0 from user 5 to user 7`
 
-for demo purpose, only one type of fund transfer was added to the server.
-however `AccountService` is able to move funds between accounts with different currencies(exchange)
-
 #### user 
+Get user information from server, includes accounts list and transctions histories.
+
 syntax: `GET user?id=1` 
 
-to retrieve user's information from the applications. result is like 
+result: 
 ```
 {
   "accounts": [{
@@ -71,32 +79,27 @@ to retrieve user's information from the applications. result is like
 Account management service fulfill the money transfer functions
 
 ### Account
-account hold by the User, which hold the money own by the user.
-it can be dynamically created as needed(received money transfer)
+Account hold by the User, which hold the money own by the user.
+It can be dynamically created as needed(received money transfer)
 
 ### Record
 Account activities
-* Debit - money debit from account to external source
-* Credit - money credited to account from external source
+* Debit - money debit from account to external source or other account.
+* Credit - money credited to account from external source or other account.
 
 ## implementation details
-this application only cases about moving funds between users. 
-to make things simpler `Account` is unique by user's `id` and it's `currency`.
-and can be created as needed.
+This application only cares about moving funds between users. 
+to make things simpler `Account` is unique by user's `id` and it's `currency` and can be created as needed.
 
-operations related to user itself(id, name) should be done by an external `UserService`
-and Forex exchange related(rate, currency) etc should be take care of by `FxService`
-and they are all out of scope for this application.
+Operations related to user itself(id, name) should be done by an external `UserService`; Forex related(rate, currency) etc should be taken care of by an `FxService`. Both are out of scope for this simple application.
 
-below is what `AccountService` does and the use of `akka` `actor` make it easier to implement.
+Below is what `AccountService` does; with `akka` `actor`, it's much easier to implement.
 
-`AccountService` will wait for request from server and initiate a `Worker` child to process each message.
+`AccountService` will wait for requests from server and initiate one `Worker` child for each message
 
-to avoid race conditions where multiple updates to same group of user's accounts happens simultaneously,
-`AccountService` will cache the users' ID in `working` set until their processes were done.
+To avoid race conditions where multiple updates to same group of user's accounts happens simultaneously, `AccountService` will cache the users' ID in `working` set until their processes were done.
 
-pending messages and their sender were cached in `waiting` queue
-until `Done` message received. pending message will be retried one by one.
+Pending messages and their sender were cached in `waiting` queue
+until `Done` message has received. And pending message will be retried one by one in order.
 
-<b>in reality, working set should be backed by shared MemCache so that we can have multiple instance
-of `AccountService` or `Server` itself.</b> *
+in real world, `working` set should be backed by shared memory cache so that we can have multiple instance of `AccountService` or `Server` itself. However there'll be another concerns related to scaling out.
