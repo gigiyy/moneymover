@@ -24,6 +24,12 @@ jobs:
     steps:
       - checkout
 
+      - run:
+          name: set resolver
+          command: |
+                    mkdir -p ~/.sbt/1.0
+                    cat ~/repo/resolver.setup > ~/.sbt/1.0/plugins.sbt
+
       # Download and cache dependencies
       - restore_cache:
           keys:

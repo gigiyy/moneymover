@@ -1,6 +1,9 @@
 # Money Mover
 coding interview assignment.
 
+## builds
+[![CircleCI](https://circleci.com/gh/gigiyy/moneymover.svg?style=svg)](https://circleci.com/gh/gigiyy/moneymover)
+
 ## how to run
 This is a `sbt` project.
 
@@ -38,7 +41,7 @@ syntax: `POST transfer?from=5&to=7&amount=100&currency=jpy`
 result: `Transferred jpy 100.0 from user 5 to user 7`
 
 #### user 
-Get user information from server, includes accounts list and transctions histories.
+Get user information from server, includes accounts list and transactions histories.
 
 syntax: `GET user?id=1` 
 
